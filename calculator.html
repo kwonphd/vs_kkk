@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>거래용 계산기</title>
+<style>
+  :root {
+    --bg: #f3f4f6;
+    --panel: #ffffff;
+    --text: #111827;
+    --muted: #6b7280;
+    --key: #e5e7eb;
+    --key-hover: #d1d5db;
+    --op: #fde68a;
+    --op-hover: #fcd34d;
+    --eq: #2563eb;
+    --eq-text: #ffffff;
+    --danger: #fecaca;
+    --border: #d1d5db;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111827;
+      --panel: #1f2937;
+      --text: #f9fafb;
+      --muted: #9ca3af;
+      --key: #374151;
+      --key-hover: #4b5563;
+      --op: #92400e;
+      --op-hover: #b45309;
+      --eq: #3b82f6;
+      --danger: #7f1d1d;
+      --border: #374151;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Malgun Gothic", "맑은 고딕", system-ui, sans-serif;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 24px 16px;
+    min-height: 100vh;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  }
+  .calc { width: 100%; max-width: 440px; }
+  h1 { font-size: 24px; margin: 0 0 12px; }
+  .display {
+    background: var(--bg);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 16px;
+    text-align: right;
+    min-height: 120px;
+  }
+  .expr {
+    font-size: 22px;
+    color: var(--muted);
+    min-height: 30px;
+    word-break: break-all;
+  }
+  .value {
+    font-size: 48px;
+    font-weight: bold;
+    word-break: break-all;
+    line-height: 1.2;
+  }
+  .keys {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  button {
+    font: inherit;
+    font-size: 30px;
+    font-weight: bold;
+    padding: 18px 0;
+    border: none;
+    border-radius: 14px;
+    background: var(--key);
+    color: var(--text);
+    cursor: pointer;
+  }
+  button:hover { background: var(--key-hover); }
+  button:active { transform: scale(0.97); }
+  .op { background: var(--op); }
+  .op:hover { background: var(--op-hover); }
+  .eq { background: var(--eq); color: var(--eq-text); }
+  .eq:hover { filter: brightness(1.1); background: var(--eq); }
+  .clear { background: var(--danger); }
+  .history { width: 100%; max-width: 360px; }
+  .history-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .history-head h2 { font-size: 22px; margin: 0; }
+  .history-head button { font-size: 18px; padding: 8px 14px; }
+  #historyList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 520px;
+    overflow-y: auto;
+  }
+  #historyList li {
+    padding: 12px 8px;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+    cursor: pointer;
+    border-radius: 8px;
+  }
+  #historyList li:hover { background: var(--bg); }
+  .h-expr { font-size: 18px; color: var(--muted); }
+  .h-result { font-size: 26px; font-weight: bold; }
+  .empty { color: var(--muted); font-size: 18px; text-align: center; padding: 20px 0; }
+  .tip { color: var(--muted); font-size: 16px; margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<div class="card calc">
+  <h1>거래용 계산기</h1>
+  <div class="display">
+    <div class="expr" id="expr"></div>
+    <div class="value" id="value">0</div>
+  </div>
+  <div class="keys">
+    <button class="clear" data-action="clear">C</button>
+    <button data-action="back">⌫</button>
+    <button data-action="percent">%</button>
+    <button class="op" data-op="÷">÷</button>
+
+    <button data-num="7">7</button>
+    <button data-num="8">8</button>
+    <button data-num="9">9</button>
+    <button class="op" data-op="×">×</button>
+
+    <button data-num="4">4</button>
+    <button data-num="5">5</button>
+    <button data-num="6">6</button>
+    <button class="op" data-op="−">−</button>
+
+    <button data-num="1">1</button>
+    <button data-num="2">2</button>
+    <button data-num="3">3</button>
+    <button class="op" data-op="+">+</button>
+
+    <button data-num="00">00</button>
+    <button data-num="0">0</button>
+    <button data-action="dot">.</button>
+    <button class="eq" data-action="equals">=</button>
+  </div>
+  <p class="tip">키보드로도 입력할 수 있어요 (숫자, + - * /, Enter, Backspace, Esc)</p>
+</div>
+
+<div class="card history">
+  <div class="history-head">
+    <h2>계산 기록</h2>
+    <button data-action="clearHistory">기록 지우기</button>
+  </div>
+  <ul id="historyList"></ul>
+  <p class="tip">기록을 누르면 그 결과를 다시 불러옵니다.</p>
+</div>
+
+<script>
+  const exprEl = document.getElementById('expr');
+  const valueEl = document.getElementById('value');
+  const historyEl = document.getElementById('historyList');
+
+  let current = '0';     // 지금 입력 중인 숫자 (문자열)
+  let stored = null;     // 앞서 입력한 숫자
+  let operator = null;   // + − × ÷
+  let waiting = false;   // 연산자를 누른 직후인지
+  let justDone = false;  // = 을 누른 직후인지
+  let errorMsg = null;
+  let history = loadHistory();
+
+  // 1234567.5 -> "1,234,567.5"
+  function formatNumber(str) {
+    if (str === '' || str === '-') return str;
+    const negative = str.startsWith('-');
+    if (negative) str = str.slice(1);
+    const [intPart, fracPart] = str.split('.');
+    const withComma = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return (negative ? '-' : '') + withComma + (fracPart !== undefined ? '.' + fracPart : '');
+  }
+
+  // 소수 계산 오차 정리 (0.1 + 0.2 = 0.3)
+  function clean(n) {
+    return parseFloat(n.toPrecision(15));
+  }
+
+  function toStr(n) {
+    // 지수 표기(1e+21) 대신 일반 숫자로
+    if (Math.abs(n) < 1e21) {
+      return n.toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 10 });
+    }
+    return String(n);
+  }
+
+  function compute(a, op, b) {
+    switch (op) {
+      case '+': return clean(a + b);
+      case '−': return clean(a - b);
+      case '×': return clean(a * b);
+      case '÷':
+        if (b === 0) return null;
+        return clean(a / b);
+    }
+  }
+
+  function render() {
+    if (errorMsg) {
+      valueEl.textContent = errorMsg;
+      valueEl.style.fontSize = '30px';
+    } else {
+      valueEl.textContent = formatNumber(current);
+      const len = valueEl.textContent.length;
+      valueEl.style.fontSize = len > 16 ? '32px' : len > 12 ? '40px' : '48px';
+    }
+    if (operator && stored !== null) {
+      exprEl.textContent = formatNumber(toStr(stored)) + ' ' + operator;
+    } else if (!justDone) {
+      exprEl.textContent = '';
+    }
+  }
+
+  function inputNumber(d) {
+    if (errorMsg) clearAll();
+    if (waiting || justDone) {
+      current = d === '00' ? '0' : d;
+      waiting = false;
+      if (justDone) { exprEl.textContent = ''; justDone = false; }
+      render();
+      return;
+    }
+    const digits = current.replace(/[-.]/g, '').length;
+    if (digits >= 15) return;
+    if (current === '0') {
+      current = d === '00' ? '0' : d;
+    } else {
+      current += d;
+    }
+    render();
+  }
+
+  function inputDot() {
+    if (errorMsg) clearAll();
+    if (waiting || justDone) {
+      current = '0.';
+      waiting = false;
+      if (justDone) { exprEl.textContent = ''; justDone = false; }
+    } else if (!current.includes('.')) {
+      current += '.';
+    }
+    render();
+  }
+
+  function setOperator(op) {
+    if (errorMsg) return;
+    const value = parseFloat(current);
+    if (operator && !waiting) {
+      const result = compute(stored, operator, value);
+      if (result === null) { showError(); return; }
+      stored = result;
+      current = toStr(result);
+    } else if (!operator || stored === null) {
+      stored = value;
+    }
+    operator = op;
+    waiting = true;
+    justDone = false;
+    render();
+  }
+
+  function equals() {
+    if (errorMsg || !operator) return;
+    const a = stored;
+    const b = parseFloat(current);
+    const result = compute(a, operator, b);
+    if (result === null) { showError(); return; }
+    const line = formatNumber(toStr(a)) + ' ' + operator + ' ' + formatNumber(toStr(b)) + ' =';
+    addHistory(line, toStr(result));
+    exprEl.textContent = line;
+    current = toStr(result);
+    stored = null;
+    operator = null;
+    waiting = false;
+    justDone = true;
+    render();
+  }
+
+  function percent() {
+    if (errorMsg) return;
+    const value = parseFloat(current);
+    // 10000 + 10% 처럼 더하기/빼기 중이면 앞 숫자의 10%로 계산
+    if (stored !== null && (operator === '+' || operator === '−')) {
+      current = toStr(clean(stored * value / 100));
+    } else {
+      current = toStr(clean(value / 100));
+    }
+    waiting = false;
+    render();
+  }
+
+  function backspace() {
+    if (errorMsg) { clearAll(); return; }
+    if (waiting || justDone) return;
+    current = current.length > 1 ? current.slice(0, -1) : '0';
+    if (current === '-') current = '0';
+    render();
+  }
+
+  function clearAll() {
+    current = '0';
+    stored = null;
+    operator = null;
+    waiting = false;
+    justDone = false;
+    errorMsg = null;
+    exprEl.textContent = '';
+    render();
+  }
+
+  function showError() {
+    errorMsg = '0으로 나눌 수 없습니다';
+    stored = null;
+    operator = null;
+    render();
+  }
+
+  // ----- 계산 기록 -----
+  function loadHistory() {
+    try {
+      return JSON.parse(localStorage.getItem('calcHistory')) || [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveHistory() {
+    try {
+      localStorage.setItem('calcHistory', JSON.stringify(history));
+    } catch (e) {}
+  }
+
+  function addHistory(expr, result) {
+    history.unshift({ expr, result });
+    if (history.length > 100) history.pop();
+    saveHistory();
+    renderHistory();
+  }
+
+  function renderHistory() {
+    historyEl.innerHTML = '';
+    if (history.length === 0) {
+      historyEl.innerHTML = '<li class="empty">아직 기록이 없습니다</li>';
+      return;
+    }
+    history.forEach(item => {
+      const li = document.createElement('li');
+      li.innerHTML = '<div class="h-expr"></div><div class="h-result"></div>';
+      li.querySelector('.h-expr').textContent = item.expr;
+      li.querySelector('.h-result').textContent = formatNumber(item.result);
+      li.addEventListener('click', () => {
+        clearAll();
+        current = item.result;
+        justDone = true;
+        render();
+      });
+      historyEl.appendChild(li);
+    });
+  }
+
+  // ----- 버튼 -----
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    if (btn.dataset.num) inputNumber(btn.dataset.num);
+    else if (btn.dataset.op) setOperator(btn.dataset.op);
+    else {
+      switch (btn.dataset.action) {
+        case 'clear': clearAll(); break;
+        case 'back': backspace(); break;
+        case 'percent': percent(); break;
+        case 'dot': inputDot(); break;
+        case 'equals': equals(); break;
+        case 'clearHistory':
+          history = [];
+          saveHistory();
+          renderHistory();
+          break;
+      }
+    }
+    btn.blur();
+  });
+
+  // ----- 키보드 -----
+  document.addEventListener('keydown', e => {
+    const k = e.key;
+    if (/^[0-9]$/.test(k)) inputNumber(k);
+    else if (k === '.') inputDot();
+    else if (k === '+') setOperator('+');
+    else if (k === '-') setOperator('−');
+    else if (k === '*' || k === 'x') setOperator('×');
+    else if (k === '/') { e.preventDefault(); setOperator('÷'); }
+    else if (k === 'Enter' || k === '=') { e.preventDefault(); equals(); }
+    else if (k === 'Backspace') backspace();
+    else if (k === 'Escape' || k === 'Delete') clearAll();
+    else if (k === '%') percent();
+  });
+
+  render();
+  renderHistory();
+</script>
+</body>
+</html>
